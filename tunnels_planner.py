@@ -8,7 +8,7 @@ def main():
     coords, cities = load_cities_dataset()
     visualize_points(coords)
     mat = get_empty_mat(coords)
-    comput_distances(coords, mat)
+    compute_direct_distances(coords, mat)
     mst = get_mst(mat)
     display_mst(mst, cities)
     visualize_mst(coords, mst)
@@ -23,21 +23,22 @@ def load_cities_dataset():
         coords = []
         cities = []
         for row in reader:
-            if check_if_add_coord(row):
+            if check_if_include_city(row):
                 #print (row["population"], ' \t', row["city"])
                 coords.append((row['lat'], row['lng']))
                 cities.append(row["city"])
+    # TODO refactor data structure
     return coords, cities
 
-def check_if_add_coord(row):
+def check_if_include_city(row):
     #return 'Texas' in row["state_name"] and int(row["population"]) > 150000
     return int(row["population"]) > 150000
 
 ########## Graph / edge functions ##########
 
+# TODO refactor this to be part of compute_distances
 def get_empty_mat(coords):
     V = len(coords)  # Number of vertices
-    #print (V)
     mat = [[-1] * V for _ in range(V)]
     return mat
 
@@ -46,7 +47,7 @@ def add_edge(mat, i, j, km):
     mat[i][j] = km
     mat[j][i] = km
 
-def comput_distances(coords, mat):
+def compute_direct_distances(coords, mat):
     for i in range(len(coords)):
         for j in range(len(coords)):
             # https://stackoverflow.com/questions/19412462/getting-distance-between-two-points-based-on-latitude-longitude
