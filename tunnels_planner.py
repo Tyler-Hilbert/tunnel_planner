@@ -1,45 +1,48 @@
 import csv
 import geopy.distance
-from scipy.sparse import csr_array
 from scipy.sparse.csgraph import minimum_spanning_tree
 import matplotlib.pyplot as plt
 
 def main():
-    coords, cities = load_cities_dataset()
-    visualize_points(coords)
-    mat = get_empty_mat(coords)
-    compute_direct_distances(coords, mat)
+    cities = load_cities_dataset()
+    visualize_points(cities)
+    mat = compute_direct_distances(cities)
     mst = get_mst(mat)
-    display_mst(mst, cities)
-    visualize_mst(coords, mst)
+    print_mst(mst, cities)
+    visualize_mst(mst, cities)
 
-
-########## Data loading functions ##########
-
-# https://simplemaps.com/data/us-cities
+# Loads dataset from https://simplemaps.com/data/us-cities
+# List of dicts with keys 'lat', 'lng' and 'name'
 def load_cities_dataset():
+    cities = []
     with open('uscities.csv', newline='') as csvfile:
         reader = csv.DictReader(csvfile)
-        coords = []
-        cities = []
         for row in reader:
-            if check_if_include_city(row):
-                #print (row["population"], ' \t', row["city"])
-                coords.append((row['lat'], row['lng']))
-                cities.append(row["city"])
-    # TODO refactor data structure
-    return coords, cities
+            city = {}
+            if int(row["population"]) > 150000: # Filter out smaller cities
+                city['lat'] = float(row['lat'])
+                city['lng'] = float(row['lng'])
+                city['name'] = row['city']
+                cities.append(city)
+    return cities
 
-def check_if_include_city(row):
-    #return 'Texas' in row["state_name"] and int(row["population"]) > 150000
-    return int(row["population"]) > 150000
+# Returns adjacency matrix of direct distances
+def compute_direct_distances(cities):
+    # Create adjacency mat of -1
+    mat = [[-1] * len(cities) for _ in range(len(cities))]
 
-########## Graph / edge functions ##########
+    # Fill mat with direct distances
+    for i in range(len(cities)):
+        for j in range(len(cities)):
+            # https://stackoverflow.com/questions/19412462/getting-distance-between-two-points-based-on-latitude-longitude
+            add_edge(
+                mat, i, j,
+                geopy.distance.geodesic(
+                    (cities[i]['lat'], cities[i]['lng']),
+                    (cities[j]['lat'], cities[j]['lng'])
+                ).km
+            )
 
-# TODO refactor this to be part of compute_distances
-def get_empty_mat(coords):
-    V = len(coords)  # Number of vertices
-    mat = [[-1] * V for _ in range(V)]
     return mat
 
 # https://www.geeksforgeeks.org/python/introduction-to-graphs-in-python/
@@ -47,50 +50,42 @@ def add_edge(mat, i, j, km):
     mat[i][j] = km
     mat[j][i] = km
 
-def compute_direct_distances(coords, mat):
-    for i in range(len(coords)):
-        for j in range(len(coords)):
-            # https://stackoverflow.com/questions/19412462/getting-distance-between-two-points-based-on-latitude-longitude
-            add_edge(mat, i, j, int(geopy.distance.geodesic(coords[i], coords[j]).km))
-
-
-########## MST functions ##########
-
+# Computes minimum spanning tree
 def get_mst(mat):
     Tcsr = minimum_spanning_tree(mat)
     return Tcsr.toarray().astype(int)
 
-def display_mst(mst, cities):
+# Print which city to city connections
+def print_mst(mst, cities):
     for i in range(len(mst)):
         for j in range(len(mst[i])):
             if mst[i][j] != 0:
-                print (cities[i], ' to ', cities[j], ': ', mst[i][j], 'kms')
+                print (cities[i]['name'], ' to ', cities[j]['name'], ': ', mst[i][j], 'kms')
 
 ########## Visualization ##########
-def visualize_points(coords):
+def visualize_points(cities):
     # FIXME this doesn't correctly scale lat/long
-    for coord in coords:
-        plt.plot(float(coord[0]), float(coord[1]), 'bo')
+    for city in cities:
+        plt.plot(city['lat'], city['lng'], 'bo')
     plt.show()
 
-def visualize_mst(coords, mst):
+def visualize_mst(mst, cities):
     # Display points
     # FIXME this doesn't correctly scale lat/long
-    for coord in coords:
-        plt.plot(float(coord[0]), float(coord[1]), 'bo')
+    for city in cities:
+        plt.plot(city['lat'], city['lng'], 'bo')
     
     # Display lines
     for i in range(len(mst)):
         for j in range(len(mst[i])):
-            coord_i = coords[i]
-            coord_j = coords[j]
+            cityi = cities[i]
+            cityj = cities[j]
             if mst[i][j] != 0:
                 plt.plot(
-                    [float(coord_i[0]),float(coord_j[0])],
-                    [float(coord_i[1]), float(coord_j[1])], 
+                    [cityi['lat'], cityj['lat']],
+                    [cityi['lng'], cityj['lng']],
                     'g-'
                 )
-    
     plt.show()
 
 ########### Main ##########
